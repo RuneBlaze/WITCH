@@ -121,6 +121,8 @@ class DecompositionAlgorithm(object):
         Configs.log('Finished creating {} HMMs to {}'.format(
             len(hmmbuild_paths), outdirprefix))
         
+        del alignment; del tree
+        
         dur = time.time() - start
         Configs.runtime('Time to decompose the backbone (s): {}'.format(
             dur))

@@ -9,6 +9,10 @@ from helpers.alignment_tools import Alignment, read_fasta
 #from multiprocessing import Lock, Pool
 from functools import partial
 
+from pympler import tracker
+from memory_profiler import profile
+import gc
+
 '''
 A class holding directory/alignment information for each HMM subset from the
 UPP decomposition
@@ -33,7 +37,6 @@ class HMMSubset(object):
                 os.popen(cmd).read().split('\n')[0])
 
         self.num_taxa = 0
-        _map = {}
         with open(self.hmm_model_path, 'r') as f:
             lines = f.read().split('\n')[:15]
             for line in lines:
@@ -158,12 +161,14 @@ def readHMMSearch(lock, total_num_models, subset):
             temp_map = eval(f.read())
             for taxon, scores in temp_map.items():
                 subset_ranks[taxon].append((subset.index, scores[1]))
+            del temp_map
     return subset_ranks
 
 '''
 MP version of reading in and ranking bitscores from HMM subsets (from UPP)
 '''
 def readAndRankBitscoreMP(index_to_hmm, renamed_taxa, lock, pool):
+    tr = tracker.SummaryTracker()
     ranks = defaultdict(list)
     total_num_models = len(index_to_hmm)
     Configs.log('Reading and ranking bit-scores from HMMSearch files')
@@ -171,6 +176,7 @@ def readAndRankBitscoreMP(index_to_hmm, renamed_taxa, lock, pool):
     # submit jobs to Pool
     func = partial(readHMMSearch, lock, total_num_models)
     all_subset_ranks = list(pool.map(func, index_to_hmm.values()))
+    tr.print_diff()
 
     # merge all MP results
     Configs.log('Ranking bit-scores')
@@ -178,6 +184,9 @@ def readAndRankBitscoreMP(index_to_hmm, renamed_taxa, lock, pool):
         for taxon, ind_score_pairs in subset_ranks.items():
             for pair in ind_score_pairs:
                 ranks[taxon].append(pair)
+        subset_ranks.clear()
+    del all_subset_ranks; all_subset_ranks = None
+    tr.print_diff()
 
     # sort the bitscores and write to local
     ranked_bitscores = defaultdict(list)
@@ -188,6 +197,9 @@ def readAndRankBitscoreMP(index_to_hmm, renamed_taxa, lock, pool):
             taxon_name = renamed_taxa[taxon]
         ranked_bitscores[taxon_name] = sorted_scores
     Configs.log('Finished ranking bit-scores')
+    del ranks; ranks = None
+    gc.collect(generation=2)
+    tr.print_diff()
     return ranked_bitscores
 
 '''
@@ -225,6 +237,7 @@ Read in and rank bitscores from UPP decomposition
 '''
 Split query sequences into batches of a defined size
 '''
+@profile
 def loadSubQueries(lock, pool):
     s1 = time.time()
     unaligned = Alignment()
@@ -235,16 +248,18 @@ def loadSubQueries(lock, pool):
     data_dir = Configs.outdir + '/data'
     num_seq, sid_to_query_names, sid_to_query_seqs, \
             renamed_taxa = writeSubQueries(unaligned, data_dir, pool)
+    del unaligned
  
     # 1.2) read in all HMMSearch results (from UPP)
     index_to_hmm = getAlignmentSubsets(Configs.hmmdir, lock, pool)
 
     # 1.3) read and rank bitscores
     #ranked_bitscore = readAndRankBitscore(index_to_hmm)
-    ranked_bitscore = readAndRankBitscoreMP(index_to_hmm, renamed_taxa,
-                                            lock, pool)
+    ranked_bitscores = readAndRankBitscoreMP(index_to_hmm, 
+            renamed_taxa, lock, pool)
+
     time_load_files = time.time() - s1
     Configs.runtime('Time to split queries and rank bit-scores (s): {}'.format(
         time_load_files))
-    return num_seq, index_to_hmm, ranked_bitscore, sid_to_query_names, \
+    return num_seq, index_to_hmm, ranked_bitscores, sid_to_query_names, \
             sid_to_query_seqs, renamed_taxa

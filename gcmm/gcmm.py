@@ -20,6 +20,9 @@ from multiprocessing import Lock, Queue, Manager#, Pool
 from concurrent.futures.process import ProcessPoolExecutor
 from functools import partial
 
+from memory_profiler import profile
+from pympler import tracker
+
 '''
 Delete all unnecessary intermediate files
 '''
@@ -69,7 +72,9 @@ def dummy():
 '''
 Main process for WITCH 
 '''
+#@profile
 def mainAlignmentProcess(args):
+    tr = tracker.SummaryTracker()
     m = Manager()
     lock = m.Lock()
     #l = Lock()
@@ -119,6 +124,7 @@ def mainAlignmentProcess(args):
         
         # default to <outdir>/tree_comp/root
         Configs.hmmdir = Configs.outdir + '/tree_decomp/root'
+    tr.print_diff()
 
     # sanity check before moving on
     assert Configs.backbone_path != None \
@@ -134,6 +140,8 @@ def mainAlignmentProcess(args):
     # 1) get all sub-queries, write to [outdir]/data
     num_seq, index_to_hmm, ranked_bitscores, sid_to_query_names, \
             sid_to_query_seqs, renamed_taxa = loadSubQueries(lock, pool)
+    tr.print_diff()
+    exit()
 
     # 2) calculate weights, if needed
     if Configs.use_weight:
@@ -142,11 +150,13 @@ def mainAlignmentProcess(args):
     else:
         print('\nLoading bit-scores...')
         taxon_to_weights = writeBitscores(ranked_bitscores, pool)
+    tr.print_diff()
 
     # 3) solve each subset
     sub_alignment_paths = []
     if not os.path.isdir(Configs.outdir + '/temp'):
         os.makedirs(Configs.outdir + '/temp')
+    tr.print_diff()
 
     ############ multiprocessing with Pool ##########
     # manager version
@@ -170,6 +180,8 @@ def mainAlignmentProcess(args):
     #results = list(pool.map(func, subset_queries, subset_weights, index_list))
     results = list(pool.map(func, subset_query_names, subset_query_seqs,
         subset_weights, index_list, chunksize=Configs.chunksize))
+    tr.print_diff()
+
     retry_results, success, failure = [], [], []
     while len(success) < num_seq:
         success.extend([r for r in results if r is not None])
@@ -191,6 +203,7 @@ def mainAlignmentProcess(args):
                 failed_item_query_seqs, failed_item_weights, failed_items,
                 chunksize=Configs.chunksize))
     queries = success
+    tr.print_diff()
 
     # global lock version
     #pool = Pool(Configs.num_cpus, initializer=init_lock, initargs=(l))
@@ -209,6 +222,7 @@ def mainAlignmentProcess(args):
     print('\nAll GCM subproblems finished! Doing merging with transitivity...')
     mergeAlignmentsCollapsed(Configs.backbone_path, queries,
             renamed_taxa, pool)
+    tr.print_diff()
 
     Configs.warning('Closing ProcessPoolExecutor instance...')
     pool.shutdown()

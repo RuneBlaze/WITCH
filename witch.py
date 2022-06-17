@@ -23,7 +23,7 @@ def main():
     args = parser.parse_args(input_args, namespace=opts)
 
     buildConfigs(args)
-    getConfigs()
+    #getConfigs()
 
     Configs.log('WITCH is running with: {}'.format(' '.join(cmdline_args)))
     if os.path.exists(main_config_path):
