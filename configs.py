@@ -6,6 +6,7 @@ Global configuration class.
 
 import os
 import time
+import shutil
 try:
     import configparser
 except ImportError:
@@ -45,7 +46,7 @@ class Configs:
 
     # hmmalign/hmmsearch/magus paths
     magus_path = os.path.join(_root_dir, 'tools/magus/magus.py')
-    gcm_path = os.path.join(_root_dir, 'tools/gcm137/gcm137')
+    gcm_path = shutil.which('gcm137') or os.path.join(_root_dir, 'tools/gcm137/gcm137')
     if 'macOS' in platform():
         hmmer_dir = os.path.join(_root_dir, 'tools/macOS')
         fasttreepath = os.path.join(_root_dir, 'tools/macOS/FastTreeMP')
