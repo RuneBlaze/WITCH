@@ -1,6 +1,9 @@
 # WITCH - WeIghTed Consensus Hmm alignment
 ![visitors](https://visitor-badge.glitch.me/badge?page_id=c5shen.visitor-badge&left_color=blue&right_color=black)
 
+> This fork contains a version of WITCH, but using the Smith-Waterman algorithm for placing the fragments in the alignment instead of using GCM.
+> This version retains the same interface as the original WITCH.
+
 (C) Chengze Shen
 
 -----------------------------
