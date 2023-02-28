@@ -2,7 +2,7 @@
 ![visitors](https://visitor-badge.glitch.me/badge?page_id=c5shen.visitor-badge&left_color=blue&right_color=black)
 
 > This fork contains a version of WITCH, but using the Smith-Waterman algorithm for placing the fragments in the alignment instead of using GCM.
-> This version retains the same interface as the original WITCH.
+> This version retains the same interface as the original WITCH. This version is retained for reproducibility purposes and is not designed to be used for new analyses. See the original WITCH repository for the latest version.
 
 (C) Chengze Shen
 
